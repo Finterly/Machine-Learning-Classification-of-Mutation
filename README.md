@@ -44,6 +44,8 @@ Greatest variation in cq, slope, inflection, asymmetry between False and True
 
 #### Final results (Python and R)
 Visualized final predictions as a binary heat map. Out of the 100 test samples, 99 samples were curves were classified correctly--with models in close agreeance. 
+
+
 <img src="img/results.png" alt="drawing" width="400"/>
 
 #### Best performing models (in no particular order): 
