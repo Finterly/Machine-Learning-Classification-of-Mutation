@@ -10,8 +10,11 @@ qPCR curve variables for learning:
 6. Asymmetry
 7. Drift
 
-to predict: 
+![alt text](https://github.com/Finterly/qPCR-CurveCall-Classification-Cancer-Mutation/blob/master/img/pcr.png)
+To predict: 
 CurveCall. If True, this curve represents a mutation. If False, it does not
+
+
 
 
 
