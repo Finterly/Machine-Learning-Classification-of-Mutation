@@ -39,7 +39,7 @@ Greatest variation in cq, slope, inflection, asymmetry between False and True
 #### Preliminary model comparison Python 
 <img src="img/models1.png" alt="drawing"/>
 <img src="img/roc1.png" alt="drawing"/>
-<img src="img/tree_1.png" alt="drawing" width="500"/><img src="img/tree_2.png" alt="drawing" width="500"/>
+<img src="img/tree_1.png" alt="drawing" width="500"/><img src="img/tree_2.png" alt="drawing" width="400"/>
 
 
 #### Final results (Python and R)
