@@ -1,0 +1,316 @@
+title: "R Notebook"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
+---
+### In this notebook, I predict the curvecall using the caret machine learning package
+### Problem type: binary classification
+### *Machine Learning Package Used*: *caret*
+
+#### Load the dataset and the library
+```{r}
+# Load packages
+library(tidyverse)
+library(dplyr)
+library(caret)
+library(GGally)
+library(rio)
+#Load data
+mydata = import("Trainingset.csv")
+names(mydata)
+```
+#### Data Spliting
+80% for training and 20% for validation.
+Seed is set to 802 for the purpose of model reproducibility
+```{r}
+set.seed(0802)
+validation_index <- createDataPartition(mydata$CurveCall, p=0.80, list=FALSE)
+# select 20% of the data for validation
+validation <- mydata[-validation_index,]
+# use the remaining 80% of data to training and testing the models
+mydata_set <- mydata[validation_index,]
+```
+#### Analyze Data
+```{r}
+# dimensions of dataaset
+dim(mydata_set)
+```
+There is 801 instances and 9 features.  
+Now lets get an overview of our data
+```{r}
+head(mydata_set, n=20)
+```
+There are missing values in cq, and id is not necessary for training. We will drop cq and id for the purpose of training. 
+
+Let's check data types of each feature
+```{r}
+sapply(mydata_set, class)
+```
+Most of them are numerical data, which is suitable for our modeling prerequisite. But we need to convert "CurveCall" to factor for data modeling.  
+
+Let's quickly get a descriptive statistics overview.
+```{r}
+# Remove redundant variable Id
+mydata_set <- mydata_set[,-1]
+dim(mydata_set)
+summary(mydata_set)
+```
+There are NA values for the cq. We may need to remove the records (or impute values) with NA values for some analysis and modeling techniques. However, with a little knowledge of our dataset, we will remove all the instances with NA.  
+Additionally, we detect some inbalance from the attribute Curvecall. We will further investigate Curvecall.
+```{r}
+cbind(freq=table(mydata_set$Class), percentage=prop.table(table(mydata_set$CurveCall))*100)
+```
+Luckily, there is not so much need for rebalancing.   
+Lets visualize of our dataset  
+We first exclude all the missing values from our training dataset and convert the data type of response variable to factor.
+```{r, message=FALSE, warning=FALSE}
+working_dataset<- mydata_set[complete.cases(mydata_set),]
+working_dataset$CurveCall = as.factor(working_dataset$CurveCall)
+ggpairs(working_dataset[,1:7])
+```
+We can see bimodal distributions and some exponential looking distributions. We may consider applying some data transformations such as standardization, BoxCox transformation, and YeoJohnson transformation.  
+
+Before applying data transformations to our training model, we will first evaluate algorithms that are appropriate for our problem. In order to select the best algorithm, we need to utilize various different methods that are relevent to our research question and evaluate its performance systematically.  
+Potential algorithms are:    
+
+Linear Algorithms                        | Non-Linear Algorithms 
+-----------------------------------------|--------------------------------------------- 
+Logistic Regression (LG)                 | k-Nearest Neighbors (KNN)              
+Linear Discriminate Analysis (LDA)       | Classification and Regression Trees (CART)         
+Regularized Logistic Regression (GLMNET) | Naive Bayes (NB)
+                                         | Support Vector Machines (SVM)
+                                         
+We will then set up resampling methods to estimate the model accuracy. We have a good amount of data so we will use 10-fold cross validation with 3 repeats. For simplicity, we will adopt Accuracy and Kappa metrics. 
+
+```{r}
+# 10-fold cross validation with 3 repeats
+control <- trainControl(method="repeatedcv", number=10, repeats=3)
+metric <- "Accuracy"
+```
+Let's create our models
+```{r, message = FALSE, warnings = FALSE}
+# LG
+set.seed(0802)
+fit.glm <- train(CurveCall~., data=working_dataset, method="glm", metric=metric, trControl=control)
+# LDA
+set.seed(0802)
+fit.lda <- train(CurveCall~., data=working_dataset, method="lda", metric=metric, trControl=control)
+# GLMNET
+set.seed(0802)
+fit.glmnet <- train(CurveCall~., data=working_dataset, method="glmnet", metric=metric, trControl=control)
+# KNN
+set.seed(0802)
+fit.knn <- train(CurveCall~., data=working_dataset, method="knn", metric=metric, trControl=control)
+# CART
+set.seed(0802)
+fit.cart <- train(CurveCall~., data=working_dataset, method="rpart", metric=metric, trControl=control)
+# Naive Bayes
+set.seed(0802)
+fit.nb <- train(CurveCall~., data=working_dataset, method="nb", metric=metric, trControl=control)
+# SVM
+set.seed(0802)
+fit.svm <- train(CurveCall~., data=working_dataset, method="svmRadial", metric=metric, trControl=control)
+# Compare algorithms
+results <- resamples(list(LG=fit.glm, LDA=fit.lda, GLMNET=fit.glmnet, KNN=fit.knn, CART=fit.cart, NB=fit.nb, SVM=fit.svm))
+summary(results)
+dotplot(results)
+```
+All algorithms have mean accuracy above 90%, which is promising. We can see the top three algorithms are:  
+Naive Bayes: 0.9934266 mean accuracy
+SVM: 0.9893939 mean accuracy
+KNN: 0.9883761 mean accuracy  
+
+Let's also test some boosting and bagging ensemble algorithms on the dataset.
+We will be using:
+
+Bagging              | Boosting
+-------------------- | ----------------------------
+Bagged CART (BAG)    | Stochastic Gradient Boosting (GBM)
+Random Forest (RF)   | C5.0 (C50)
+```{r, message = FALSE, warnings = FALSE}
+# Ensembles: Boosting and Bagging
+# 10-fold cross validation with 3 repeats
+control <- trainControl(method="repeatedcv", number=10, repeats=3)
+metric <- "Accuracy"
+# Bagged CART
+set.seed(0802)
+fit.treebag <- train(CurveCall~., data=working_dataset, method="treebag", metric=metric, trControl=control)
+# Random Forest
+set.seed(0802)
+fit.rf <- train(CurveCall~., data=working_dataset, method="rf", metric=metric, trControl=control)
+# Stochastic Gradient Boosting
+set.seed(0802)
+fit.gbm <- train(CurveCall~., data=working_dataset, method="gbm", metric=metric, trControl=control, verbose=FALSE)
+# C5.0
+set.seed(0802)
+fit.c50 <- train(CurveCall~., data=working_dataset, method="C5.0", metric=metric, trControl=control)
+# Compare results
+ensemble_results <- resamples(list(BAG=fit.treebag, RF=fit.rf, GBM=fit.gbm, C50=fit.c50))
+summary(ensemble_results)
+dotplot(ensemble_results)
+```
+All algorithms have mean accuracy above 90%, which is promising. Random Forest perform the best with mean accuracy 0.9909013. We will choose RF as the representitive for our Ensemble method.
+
+Now we will be choosing these top four algorithms for a further training session. This time, we will be applying 5 different ways of transformation. Without going into too many tedious details, we will present 5 different mean predcition accuracy results based on 5 different transformation methods:  
+
+##### By using the BoxCox Transformation, for the top 4 algorithms: KNN, NB, SVM, and RF   
+##### Accuracy was: KNN: 0.9565 | NB: 0.9689  | SVM: 0.9814 | RF: 0.9441 
+
+##### By using the YeoJohnson Transformation, for the top 4 algorithms: KNN, NB, SVM, and RF:
+##### Accuracy was: KNN: 0.9876 | NB: 0.9689  | SVM: 0.9814 | RF: 0.9441
+
+##### By using the center and scale Transformation, for the top 4 algorithms: KNN, NB, SVM, and RF:
+##### Accuracy was: KNN: 0.9814 | NB: 0.9689  | SVM: 0.9814 | RF: 0.9441
+
+##### By using the center, scale, and BoxCox Transformation, for the top 4 algorithms: KNN, NB, SVM, and RF:
+##### Accuracy was: KNN: 0.9814 | NB: 0.9689  | SVM: 0.9814 | RF: 0.9441
+
+##### By using the center, scale, and YeoJohnson Transformation, for the top 4 algorithms: KNN, NB, SVM, and RF:
+##### Accuracy was: KNN: 0.9814 | NB: 0.9689  | SVM: 0.9814 | RF: 0.9441
+
+We can see that YeoJohnson transformation yield the best result among all. Now we will perform how we further evaluate our algorithm with transformation.
+
+```{r, message = FALSE, warnings = FALSE}
+# 10-fold cross validation with 3 repeats
+control <- trainControl(method="repeatedcv", number=10, repeats=3)
+metric <- "Accuracy"
+# LG
+set.seed(0802)
+fit.glm <- train(CurveCall~., data=working_dataset, method="glm", metric=metric, preProc=c("YeoJohnson"), trControl=control)
+# LDA
+set.seed(0802)
+fit.lda <- train(CurveCall~., data=working_dataset, method="lda", metric=metric, preProc=c("YeoJohnson"), trControl=control)
+# GLMNET
+set.seed(0802)
+fit.glmnet <- train(CurveCall~., data=working_dataset, method="glmnet", metric=metric, preProc=c("YeoJohnson"), trControl=control)
+# KNN
+set.seed(0802)
+fit.knn <- train(CurveCall~., data=working_dataset, method="knn", metric=metric, preProc=c("YeoJohnson"), trControl=control)
+# CART
+set.seed(0802)
+fit.cart <- train(CurveCall~., data=working_dataset, method="rpart", metric=metric, preProc=c("YeoJohnson"), trControl=control)
+# Naive Bayes
+set.seed(0802)
+fit.nb <- train(CurveCall~., data=working_dataset, method="nb", metric=metric, preProc=c("YeoJohnson"), trControl=control)
+# SVM
+set.seed(0802)
+fit.svm <- train(CurveCall~., data=working_dataset, method="svmRadial", metric=metric, preProc=c("YeoJohnson"), trControl=control)
+# Compare algorithms
+transform_results <- resamples(list(LG=fit.glm, LDA=fit.lda, GLMNET=fit.glmnet, KNN=fit.knn, CART=fit.cart, NB=fit.nb, SVM=fit.svm))
+summary(transform_results)
+dotplot(transform_results)
+```
+
+After we have selected our top algorithms, we will now try some tuning of all the top algorithms
+```{r, message = FALSE, warnings = FALSE}
+#### Tune NB #####  preProc=c("YeoJohnson")
+control <- trainControl(method="repeatedcv", number=10, repeats=3)
+metric <- "Accuracy"
+set.seed(0802)
+grid <- expand.grid(
+  usekernel = c(TRUE, FALSE),
+  fL = 0:5,
+  adjust = seq(0, 5, by = 1)
+)
+fit.nb <- train(CurveCall~., data=working_dataset, method="nb", metric=metric, tuneGrid = grid, preProc=c("YeoJohnson"), trControl=control)
+fit.nb$results %>% 
+  top_n(5, wt = Accuracy) %>%
+  arrange(desc(Accuracy))
+plot(fit.nb)
+# Tune SVM
+# 10-fold cross validation with 3 repeats
+control <- trainControl(method="repeatedcv", number=10, repeats=3)
+metric <- "Accuracy"
+set.seed(0802)
+grid <- expand.grid(.sigma=c(0.025, 0.05, 0.1, 0.15), .C=seq(1, 10, by=1))
+fit.svm <- train(CurveCall~., data=working_dataset, method="svmRadial", metric=metric, tuneGrid=grid, preProc=c("YeoJohnson"), trControl=control)
+print(fit.svm)
+fit.svm$results %>% 
+  top_n(5, wt = Accuracy) %>%
+  arrange(desc(Accuracy))
+plot(fit.svm)
+# Tune KNN
+# 10-fold cross validation with 3 repeats
+control <- trainControl(method="repeatedcv", number=10, repeats=3)
+metric <- "Accuracy"
+set.seed(0802)
+grid <- expand.grid(.k=seq(1,20,by=1))
+fit.knn <- train(CurveCall~., data=working_dataset, method="knn", metric=metric, tuneGrid=grid, preProc=c("YeoJohnson"), trControl=control)
+print(fit.knn)
+fit.knn$results %>% 
+  top_n(5, wt = Accuracy) %>%
+  arrange(desc(Accuracy))
+plot(fit.knn)
+```
+We will also apply transformation technique to flatten the distribution and aim to a better accuracy
+```{r, message = FALSE, warnings = FALSE}
+# 10-fold cross validation with 3 repeats
+control <- trainControl(method="repeatedcv", number=10, repeats=3)
+metric <- "Accuracy"
+# Bagged CART
+set.seed(0802)
+fit.treebag <- train(CurveCall~., data=working_dataset, method="treebag", metric=metric, trControl=control)
+# Random Forest
+set.seed(0802)
+fit.rf <- train(CurveCall~., data=working_dataset, method="rf", metric=metric, preProc=c("YeoJohnson"), trControl=control)
+# Stochastic Gradient Boosting
+set.seed(0802)
+fit.gbm <- train(CurveCall~., data=working_dataset, method="gbm", metric=metric, preProc=c("YeoJohnson"), trControl=control, verbose=FALSE)
+# C5.0
+set.seed(0802)
+fit.c50 <- train(CurveCall~., data=working_dataset, method="C5.0", metric=metric, preProc=c("YeoJohnson"), trControl=control)
+# Compare results
+ensemble_results <- resamples(list(BAG=fit.treebag, RF=fit.rf, GBM=fit.gbm, C50=fit.c50))
+summary(ensemble_results)
+dotplot(ensemble_results)
+```
+Now we will finalize our model by using our validation dataset to see the actual accuracy
+```{r, message = FALSE, warnings = FALSE}
+# prepare the validation dataset
+set.seed(0802)
+# remove id column
+validation <- validation[,-1]
+dim(validation)
+# remove missing values (not allowed in this implementation of knn)
+validation <- validation[complete.cases(validation),]
+validation$CurveCall = as.factor(validation$CurveCall)
+# make predictions with KNN
+set.seed(0802)
+pred <- predict(fit.knn, newdata = validation)
+confusionMatrix(pred, validation$CurveCall) #0.9876
+# make predictions with Naive Bayes
+set.seed(0802)
+pred <- predict(fit.nb, newdata = validation)
+confusionMatrix(pred, validation$CurveCall) #0.9689
+# make predictions with SVM
+set.seed(0802)
+pred <- predict(fit.svm, newdata = validation)
+confusionMatrix(pred, validation$CurveCall) #0.9814
+# make predictions with RF
+set.seed(0802)
+pred <- predict(fit.rf, newdata = validation)
+confusionMatrix(pred, validation$CurveCall) #0.9441  
+```
+Using the finalModel in the fit, we can see that the accuracy on the hold out validation/test dataset was all pretty decent. Now we will be using these models to predict the final Validation data set.
+```{r, message = FALSE, warnings = FALSE}
+real_test = import("Validationset.csv")
+names(real_test)
+dim(real_test)
+# remove missing values (not allowed in this implementation of knn)
+real_test <- real_test[complete.cases(real_test),]
+dim(real_test)
+# make predictions with KNN
+pred_knn <- predict(fit.knn, newdata = real_test)
+# make predictions with Naive Bayes
+pred_nb = predict(fit.nb, newdata = real_test)
+# make predictions with SVM
+pred_svm <- predict(fit.svm, newdata = real_test)
+# make predictions with RF
+pred_rf <- predict(fit.rf, newdata = real_test)
+```
+Let's see the combined results:
+```{r, message = FALSE, warnings = FALSE}
+result = real_test %>%
+  select(V1) %>%
+  mutate(Predition.KNN = pred_knn, Prediction.NB = pred_nb, Prediction.SVM = pred_svm, Prediction.rf = pred_rf)
+print(result)
