@@ -18,7 +18,7 @@ qPCR curve variables for learning:
 To predict: 
 CurveCall. If True, this curve represents a mutation. If False, it does not
 
-#### R 
+#### R workflow
 <img src="img/r_flow.png" alt="drawing" width="600"/>
 
 #### R results
@@ -27,7 +27,7 @@ Random Forest performs the best with mean accuracy of 0.99
 Yeo-johnson transformation gave best results
 <img src="img/r_results.png" alt="drawing" />
 
-#### Python 
+#### Python workflow
 <img src="img/python_flow.png" alt="drawing" width="600"/>
 
 #### Exploratory analysis in Python 
