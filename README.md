@@ -1,22 +1,11 @@
-## Classifying qPCR Cancer Mutation data
+## Classifying Disease Mutation data
 
-Created machine learning models in R and Python to classify qPCR curves of cancer data as mutation or no mutation. 
+Created machine learning models in R and Python to classify curves of disease data as mutation or no mutation. 
 
 #### The data
 <img src="img/pcr.jpg" alt="drawing" width="300" align ="right"/>
 
-qPCR curve variables for learning: 
-1. Cq
-2. Baseline
-3. Plateau
-4. Slope
-5. Inflection
-6. Asymmetry
-7. Drift
-
-
-To predict: 
-CurveCall. If True, this curve represents a mutation. If False, it does not
+7 variables for learning and response variable True (is mutation) and False (is not).
 
 #### R workflow
 <img src="img/r_flow.png" alt="drawing" width="600"/>
@@ -31,9 +20,8 @@ Yeo-johnson transformation gave best results
 <img src="img/python_flow.png" alt="drawing" width="600"/>
 
 #### Exploratory analysis in Python 
-In the training set, there appears to be correlation between cq and inflection. 
-In the validation set, there appears to be correlation between cq and inflection
-Greatest variation in cq, slope, inflection, asymmetry between False and True
+In both the training and validation set, there appears to be correlation variables 
+Variation is greater in certain variables 
 <img src="img/explore1.png" alt="drawing" width="250"/><img src="img/explore2.png" alt="drawing" width="250"/><img src="img/explore3.png" alt="drawing" width="250"/><img src="img/explore4.png" alt="drawing" width="250"/><img src="img/explore5.png" alt="drawing" width="250"/>
 
 #### Preliminary model comparison Python 
